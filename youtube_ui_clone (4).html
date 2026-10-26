@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube UI 完全再現クローン</title>
+    <style>
+        /* --- 基本リセット & 共通スタイル --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Roboto", "Arial", sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: #0f0f0f;
+            color: #f1f1f1;
+            overflow-x: hidden;
+        }
+
+        button, input {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            outline: none;
+        }
+
+        /* --- ヘッダー領域 --- */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 56px;
+            background-color: #0f0f0f;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .icon-btn:hover {
+            background-color: #272727;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .logo-svg {
+            width: 90px;
+            height: 20px;
+            fill: #ffffff;
+        }
+
+        .header-center {
+            display: flex;
+            align-items: center;
+            flex: 0 1 732px;
+            gap: 12px;
+        }
+
+        .search-box {
+            display: flex;
+            flex: 1;
+            background-color: #121212;
+            border: 1px solid #303030;
+            border-radius: 40px 0 0 40px;
+            padding: 0 4px 0 16px;
+            align-items: center;
+            height: 40px;
+        }
+
+        .search-box:focus-within {
+            border-color: #1c62b9;
+            margin-left: 4px;
+        }
+
+        .search-input {
+            width: 100%;
+            height: 100%;
+            font-size: 16px;
+            color: #ffffff;
+        }
+
+        .search-input::placeholder {
+            color: #888888;
+        }
+
+        .search-btn {
+            background-color: #222222;
+            border: 1px solid #303030;
+            border-left: none;
+            border-radius: 0 40px 40px 0;
+            width: 64px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .search-btn:hover {
+            background-color: #272727;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .profile-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            cursor: pointer;
+        }
+
+        /* --- メインコンテナ構造 --- */
+        .main-container {
+            display: flex;
+            margin-top: 56px;
+            height: calc(100vh - 56px);
+        }
+
+        /* --- サイドバー領域 --- */
+        nav {
+            width: 240px;
+            background-color: #0f0f0f;
+            height: 100%;
+            overflow-y: auto;
+            padding: 0 12px;
+            flex-shrink: 0;
+            transition: width 0.15s ease-in-out;
+        }
+
+        nav.collapsed {
+            width: 72px;
+            padding: 0 4px;
+        }
+
+        .nav-section {
+            padding: 12px 0;
+            border-bottom: 1px solid #303030;
+        }
+
+        .nav-section:last-child {
+            border-bottom: none;
+        }
+
+        .nav-section-title {
+            font-size: 14px;
+            font-weight: 500;
+            padding: 6px 12px;
+            color: #f1f1f1;
+        }
+
+        nav.collapsed .nav-section-title,
+        nav.collapsed .nav-section {
+            border-bottom: none;
+        }
+        nav.collapsed .nav-section-title {
+            display: none;
+        }
+
+        .nav-item {
+            width: 100%;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            border-radius: 10px;
+            padding: 0 12px;
+            gap: 24px;
+            font-size: 14px;
+        }
+
+        .nav-item:hover {
+            background-color: #272727;
+        }
+
+        .nav-item.active {
+            background-color: #272727;
+            font-weight: 500;
+        }
+
+        nav.collapsed .nav-item {
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            height: 74px;
+            padding: 0;
+            font-size: 10px;
+        }
+
+        nav.collapsed .nav-item svg {
+            margin: 0;
+        }
+
+        .nav-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+
+        /* --- コンテンツ表示領域 --- */
+        .content-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            background-color: #0f0f0f;
+            padding: 0 24px;
+        }
+
+        /* --- カテゴリタグバー --- */
+        .tags-bar {
+            position: sticky;
+            top: 0;
+            background-color: #0f0f0f;
+            padding: 12px 0;
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            z-index: 10;
+        }
+
+        .tags-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tag-chip {
+            background-color: #272727;
+            color: #f1f1f1;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .tag-chip:hover {
+            background-color: #3f3f3f;
+        }
+
+        .tag-chip.active {
+            background-color: #ffffff;
+            color: #0f0f0f;
+        }
+
+        /* --- 各種画面レイアウト --- */
+        .view-section {
+            display: none;
+            padding-top: 12px;
+            padding-bottom: 40px;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        /* 1. ホーム画面 (動画グリッド) */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            column-gap: 16px;
+            row-gap: 40px;
+        }
+
+        .video-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .thumbnail-container {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background-color: #272727;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .thumbnail-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .video-card:hover .thumbnail-img {
+            transform: scale(1.02);
+            border-radius: 0;
+        }
+
+        .duration-badge {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #ffffff;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .video-info-block {
+            display: flex;
+            gap: 12px;
+        }
+
+        .channel-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #3f3f3f;
+            flex-shrink: 0;
+            object-fit: cover;
+        }
+
+        .channel-avatar:hover {
+            opacity: 0.9;
+        }
+
+        .video-text-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .video-title {
+            font-size: 16px;
+            font-weight: 500;
+            line-height: 22px;
+            color: #f1f1f1;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-channel-name {
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .video-channel-name:hover {
+            color: #fff;
+        }
+
+        .video-stats {
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        /* 2. 動画再生画面 */
+        .watch-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 24px;
+            padding-top: 16px;
+        }
+
+        @media (max-width: 1000px) {
+            .watch-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .player-master {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background-color: #000000;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .player-placeholder-ui {
+            text-align: center;
+            color: #aaa;
+        }
+
+        .player-play-btn {
+            width: 64px;
+            height: 64px;
+            background-color: rgba(0,0,0,0.6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+            border: 2px solid #fff;
+        }
+
+        .watch-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 12px;
+            line-height: 28px;
+        }
+
+        .watch-channel-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #303030;
+        }
+
+        .watch-channel-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .subscribe-btn {
+            background-color: #f1f1f1;
+            color: #0f0f0f;
+            padding: 0 16px;
+            height: 36px;
+            border-radius: 18px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .subscribe-btn.subbed {
+            background-color: #272727;
+            color: #f1f1f1;
+        }
+
+        .watch-actions-right {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-pill {
+            background-color: #272727;
+            height: 36px;
+            padding: 0 16px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .action-pill:hover {
+            background-color: #3f3f3f;
+        }
+
+        .video-description-box {
+            background-color: #272727;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 14px;
+            line-height: 20px;
+        }
+
+        /* コメント欄擬似 */
+        .comments-section {
+            margin-top: 24px;
+        }
+
+        .comment-input-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .comment-box-line {
+            flex: 1;
+            border-bottom: 1px solid #303030;
+            padding-bottom: 4px;
+        }
+
+        .comment-box-line input {
+            width: 100%;
+            font-size: 14px;
+        }
+
+        /* 3. チャンネル画面 */
+        .channel-banner {
+            width: 100%;
+            height: 160px;
+            background: linear-gradient(90deg, #1c62b9 0%, #9c27b0 100%);
+            border-radius: 12px;
+        }
+
+        .channel-header-info {
+            display: flex;
+            padding: 24px 0;
+            gap: 24px;
+            align-items: flex-start;
+            border-bottom: 1px solid #303030;
+        }
+
+        .channel-large-avatar {
+            width: 128px;
+            height: 128px;
+            border-radius: 50%;
+            background-color: #3f3f3f;
+            object-fit: cover;
+        }
+
+        .channel-meta-text {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .channel-full-name {
+            font-size: 36px;
+            font-weight: bold;
+        }
+
+        .channel-handle-stats {
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .channel-tabs {
+            display: flex;
+            gap: 24px;
+            border-bottom: 1px solid #303030;
+            margin-bottom: 24px;
+        }
+
+        .channel-tab {
+            padding: 14px 0;
+            font-size: 16px;
+            font-weight: 500;
+            color: #aaa;
+            position: relative;
+        }
+
+        .channel-tab.active {
+            color: #fff;
+        }
+
+        .channel-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: #fff;
+        }
+
+        /* --- 共通コンポーネント用装飾アイコン（SVGインライン） --- */
+        .svg-icon {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        /* トップローディングインジケーター */
+        #top-loading-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: #ff0000;
+            z-index: 1000;
+            transition: width 0.2s ease;
+            display: none;
+        }
+
+        /* トーストポップアップ */
+        #toast-notice {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            background-color: #f1f1f1;
+            color: #0f0f0f;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 2000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 赤いトッププログレスバー -->
+    <div id="top-loading-bar"></div>
+
+    <!-- トースト表示器 -->
+    <div id="toast-notice"></div>
+
+    <!-- ヘッダーバー -->
+    <header>
+        <div class="header-left">
+            <button class="icon-btn" id="menu-toggle-btn" title="ナビゲーションメニュー">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 6H3V5h18v1zm0 5H3v1h18v-1zm0 6H3v1h18v-1z"/></svg>
+            </button>
+            <div class="logo-container" id="logo-home-trigger">
+                <!-- YouTubeロゴの代用簡易モックSVG -->
+                <svg class="logo-svg" viewBox="0 0 200 60" style="width: 90px; height: 30px;">
+                    <g transform="scale(0.7)">
+                        <path d="M63,14.8c-0.7-2.7-2.9-4.8-5.6-5.5C52.5,8,32,8,32,8S11.5,8,6.6,9.3c-2.7,0.7-4.9,2.8-5.6,5.5C0,19.7,0,30,0,30s0,10.3,1.3,15.2c0.7,2.7,2.9,4.8,5.6,5.5C11.5,52,32,52,32,52s20.5,0,25.4-1.3c2.7-0.7,4.9-2.8,5.6-5.5C64,40.3,64,30,64,30S64,19.7,63,14.8z" fill="#FF0000"/>
+                        <polygon points="26,42 43,30 26,18" fill="#FFFFFF"/>
+                    </g>
+                </svg>
+                <span style="font-size: 22px; font-weight: bold; letter-spacing: -1px; margin-left: -25px;">YouTube</span>
+            </div>
+        </div>
+
+        <div class="header-center">
+            <div class="search-box">
+                <input type="text" class="search-input" id="main-search-input" placeholder="検索">
+            </div>
+            <button class="search-btn" id="main-search-execute" title="検索">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M20.87 20.17l-5.59-5.59C16.35 13.35 17 11.75 17 10c0-3.87-3.13-7-7-7S3 6.13 3 10s3 3.13 7 7c1.75 0 3.35-.65 4.58-1.71l5.59 5.59.7-.69zM10 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+            </button>
+            <button class="icon-btn" id="mic-action-btn" title="音声検索">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 3c-1.66 0-3 1.34-3 3v7c0 1.66 1.34 3 3 3s3-1.34 3-3V6c0-1.66-1.34-3-3-3zm5 10h-1c0 2.21-1.79 4-4 4s-4-1.79-4-4H7c0 2.76 2.08 5.06 4.75 5.44V21h1.5v-2.56c2.67-.38 4.75-2.68 4.75-5.44z"/></svg>
+            </button>
+        </div>
+
+        <div class="header-right">
+            <button class="icon-btn" id="create-video-btn" title="作成">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2zm9-4v10c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V9c0-1.1.9-2 2-2h4l2-3h6l2 3h4c1.1 0 2 .9 2 2zm-1 0H14.17L12.17 6H11.8L9.8 9H3v10h18V9z"/></svg>
+            </button>
+            <button class="icon-btn" id="notifications-btn" title="通知">
+                <svg class="svg-icon" viewBox="0 0 24 24"><path d="M10 21h4c0 1.1-.9 2-2 2s-2-.9-2-2zm11-2v1H3v-1l2-2v-6c0-3.07 1.64-5.64 4.5-6.32V4c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v.68c2.86.68 4.5 3.25 4.5 6.32v6l2 2z"/></svg>
+            </button>
+            <img src="https://picsum.photos/id/1025/100/100" class="profile-icon" id="my-profile-trigger" alt="プロフィール">
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- サイドナビゲーション -->
+        <nav id="sidebar-nav">
+            <div class="nav-section">
+                <button class="nav-item active" data-target-view="home-view">
+                    <svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 21V10.08l8-6.06 8 6.06V21h-7v-6h-2v6H4z"/></svg>
+                    <span>ホーム</span>
+                </button>
+                <button class="nav-item" data-target-view="shorts-placeholder">
+                    <svg class="svg-icon" viewBox="0 0 24 24"><path d="M17.77 10.32c-.77-.32-1.2-1.08-1.2-1.08L18 8.16c1.17-.63 1.61-2.1 1-3.27-.63-1.17-2.1-1.61-3.27-1L6.16 9.16c-1.17.63-1.61 2.1-1 3.27.48.9 1.43 1.38 2.38 1.38.3 0 .6-.05.9-.17.77-.32 1.2 1.08 1.2 1.08l-1.43 1.08c-1.17.63-1.61 2.1-1 3.27.63 1.17 2.1 1.61 3.27 1L17.84 15c1.17-.63 1.61-2.1 1-3.27-.48-.9-1.43-1.38-2.38-1.38-.3 0-.6.05-.9.17zM10 14.65v-5.3L15 12l-5 2.65z"/></svg>
+                    <span>Shorts</span>
+                </button>
+                <button class="nav-item" data-target-view="subs-placeholder">
+                    <svg class="svg-icon" viewBox="0 0 24 24"><path d="M20 7H4V6h16v1zm2 3H2v10h20V10zm-1 9H3v-8h18v8zm-3-12H6V3h12v1z"/></svg>
+                    <span>登録チャンネル</span>
+                </button>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title">マイページ</div>
+                <button class="nav-item" data-target-view="history-placeholder">
+                    <svg class="svg-icon" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.06 1.06C10.28 19.56 12.11 20 14 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8H12z"/></svg>
+                    <span>履歴</span>
+                </button>
+                <button class="nav-item" data-target-view="playlists-placeholder">
+                    <svg class="svg-icon" viewBox="0 0 24 24"><path d="M22 7H2v1h20V7zm-4 5H2v1h16v-1zm-4 5H2v1h12v-1zm6-5v8l7-4-7-4z"/></svg>
+                    <span>再生リスト</span>
+                </button>
+            </div>
+            <div class="nav-section" id="subs-list-section">
+                <div class="nav-section-title">登録チャンネル</div>
+                <!-- JSで動的にチャンネルアイテムを生成 -->
+            </div>
+        </nav>
+
+        <!-- メインコンテンツ表示窓 -->
+        <div class="content-wrapper">
+            
+            <!-- 1. ホームビュー -->
+            <section id="home-view" class="view-section active">
+                <!-- 上部タグバー -->
+                <div class="tags-bar" id="category-tags-container">
+                    <button class="tag-chip active">すべて</button>
+                    <button class="tag-chip">音楽</button>
+                    <button class="tag-chip">ゲーム</button>
+                    <button class="tag-chip">ライブ</button>
+                    <button class="tag-chip">料理</button>
+                    <button class="tag-chip">アニメ</button>
+                    <button class="tag-chip">ガジェット</button>
+                    <button class="tag-chip">モータースポーツ</button>
+                    <button class="tag-chip">旅行</button>
+                </div>
+                <!-- 動画カードグリッド -->
+                <div class="video-grid" id="main-video-grid">
+                    <!-- JSから構造を注入 -->
+                </div>
+            </section>
+
+            <!-- 2. 動画再生ビュー -->
+            <section id="watch-view" class="view-section">
+                <div class="watch-layout">
+                    <div class="watch-main-col">
+                        <div class="player-master">
+                            <div class="player-placeholder-ui">
+                                <button class="player-play-btn">
+                                    <svg width="24" height="24" fill="#fff" viewBox="0 0 24 24"><polygon points="8,5 19,12 8,19"/></svg>
+                                </button>
+                                <p id="player-status-text">動画をシミュレート再生中...</p>
+                            </div>
+                        </div>
+                        <h1 class="watch-title" id="watch-display-title">動画のタイトルがここにロードされます</h1>
+                        
+                        <div class="watch-channel-bar">
+                            <div class="watch-channel-left">
+                                <img src="" class="channel-avatar" id="watch-channel-avatar" alt="avatar">
+                                <div>
+                                    <div class="video-channel-name" id="watch-channel-name" style="font-weight:bold; font-size:16px;">チャンネル名</div>
+                                    <div id="watch-channel-subs" style="font-size:12px; color:#aaa;">チャンネル登録者数 128万人</div>
+                                </div>
+                                <button class="subscribe-btn" id="watch-sub-button">チャンネル登録</button>
+                            </div>
+                            <div class="watch-actions-right">
+                                <button class="action-pill">
+                                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:18px;height:18px;"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>
+                                    <span>高評価</span>
+                                </button>
+                                <button class="action-pill">共有</button>
+                                <button class="action-pill">オフライン</button>
+                            </div>
+                        </div>
+
+                        <div class="video-description-box">
+                            <span style="font-weight: bold;" id="watch-meta-details">視聴回数 10万回 • 3時間前</span><br>
+                            <p style="margin-top:8px; color:#ddd;">ここに動画の詳細な説明文が入ります。UIクローン完全再現モデル。すべての要素が相互リンクして画面がシームレスに切り替わります。</p>
+                        </div>
+
+                        <!-- 擬似コメント -->
+                        <div class="comments-section">
+                            <h3>コメント 12件</h3>
+                            <div class="comment-input-row">
+                                <img src="https://picsum.photos/id/1025/100/100" class="channel-avatar" alt="me">
+                                <div class="comment-box-line">
+                                    <input type="text" placeholder="コメントを追加...">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右側：関連動画おすすめ -->
+                    <div class="watch-sidebar-col" id="suggested-videos-container">
+                        <!-- JSでホームと同様のミニカードを配置 -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. チャンネル詳細ビュー -->
+            <section id="channel-view" class="view-section">
+                <div class="channel-banner"></div>
+                <div class="channel-header-info">
+                    <img src="" class="channel-large-avatar" id="channel-view-avatar" alt="Avatar">
+                    <div class="channel-meta-text">
+                        <h1 class="channel-full-name" id="channel-view-title">チャンネル名</h1>
+                        <p class="channel-handle-stats" id="channel-view-meta">@channel_handle • 登録者数 50万人 • 120本の動画</p>
+                        <p class="channel-handle-stats">最高品質のテックおよびライフスタイルコンテンツをお届けします。</p>
+                        <button class="subscribe-btn" id="channel-view-sub-btn" style="margin-top:12px; width: fit-content;">チャンネル登録</button>
+                    </div>
+                </div>
+
+                <div class="channel-tabs">
+                    <button class="channel-tab active">ホーム</button>
+                    <button class="channel-tab">動画</button>
+                    <button class="channel-tab">Shorts</button>
+                    <button class="channel-tab">再生リスト</button>
+                </div>
+
+                <h2>動画</h2>
+                <div class="video-grid" id="channel-video-grid" style="margin-top:16px;">
+                    <!-- 対象のチャンネルが投稿した動画をフィルタリング表示 -->
+                </div>
+            </section>
+
+            <!-- 4. その他のシンプルなプレースホルダービュー -->
+            <section id="generic-placeholder-view" class="view-section">
+                <div style="text-align: center; padding: 100px 0; color: #aaa;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:64px; height:64px; margin-bottom:16px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                    <h2 id="placeholder-title" style="color:#fff; margin-bottom:8px;">セクション</h2>
+                    <p>この画面はYouTube UI再現用のダミービューです。ヘッダーやサイドバーからいつでも戻れます。</p>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- --- アプリケーションJavaScript論理 --- -->
+    <script>
+        // --- 擬似データソース ---
+        const channelsData = [
+            { id: "ch1", name: "TechNova 日本語版", handle: "technova_jp", avatar: "https://picsum.photos/id/1012/120/120", subs: "128万人", videosCount: "412本" },
+            { id: "ch2", name: "心躍る料理レシピch", handle: "cooking_heart", avatar: "https://picsum.photos/id/1027/120/120", subs: "45.2万人", videosCount: "185本" },
+            { id: "ch3", name: "Gamer's Hideout", handle: "gamers_hideout", avatar: "https://picsum.photos/id/1043/120/120", subs: "89.1万人", videosCount: "920本" },
+            { id: "ch4", name: "Vlog 旅する日常", handle: "travel_vlog_day", avatar: "https://picsum.photos/id/1062/120/120", subs: "23万人", videosCount: "94本" }
+        ];
+
+        const videosData = [
+            { id: "v1", title: "【2026年最新】次世代フラッグシップスマホを徹底レビュー！買うべきか？", channelId: "ch1", views: "24万回", time: "2日前", duration: "14:22", category: "ガジェット" },
+            { id: "v2", title: "5分で出来る究極のとろとろオムライスの作り方。秘密の隠し味教えます", channelId: "ch2", views: "8.5万回", time: "5時間前", duration: "08:05", category: "料理" },
+            { id: "v3", title: "【神回】大人気オープンワールド最新作の隠しボスをノーダメージ攻略！", channelId: "ch3", views: "52万回", time: "1日前", duration: "32:40", category: "ゲーム" },
+            { id: "v4", title: "世界一美しい島、南国の楽園で過ごす1週間のリフレッシュ一人旅Vlog", channelId: "ch4", views: "12万回", time: "4日前", duration: "21:15", category: "旅行" },
+            { id: "v5", title: "プロが教える動画編集PCの最適な選び方構成【2026】", channelId: "ch1", views: "4.1万回", time: "12時間前", duration: "18:50", category: "ガジェット" },
+            { id: "v6", title: "お店の味を完全再現！濃厚スパイス本格バターチキンカレー", channelId: "ch2", views: "15万回", time: "1週間前", duration: "11:12", category: "料理" },
+            { id: "v7", title: "新作FPSゲームで世界ランク1位のプロとマッチングした結果がヤバすぎた", channelId: "ch3", views: "88万回", time: "3日前", duration: "15:03", category: "ゲーム" },
+            { id: "v8", title: "日本の秘境温泉へ。雪景色を眺めながら入る最高の露天風呂めぐり", channelId: "ch4", views: "31万回", time: "5日前", duration: "25:40", category: "旅行" }
+        ];
+
+        // 登録状態の追跡
+        let subscribedChannels = { "ch1": true };
+
+        // --- DOM要素取得 ---
+        const menuToggleBtn = document.getElementById('menu-toggle-btn');
+        const sidebarNav = document.getElementById('sidebar-nav');
+        const mainVideoGrid = document.getElementById('main-video-grid');
+        const subsListSection = document.getElementById('subs-list-section');
+        const topLoadingBar = document.getElementById('top-loading-bar');
+        const toastNotice = document.getElementById('toast-notice');
+        
+        // ビューセクション
+        const viewSections = document.querySelectorAll('.view-section');
+        const homeView = document.getElementById('home-view');
+        const watchView = document.getElementById('watch-view');
+        const channelView = document.getElementById('channel-view');
+        const genericPlaceholderView = document.getElementById('generic-placeholder-view');
+
+        // --- ルーティング & 画面遷移ファンクション ---
+        function triggerLoading(callback) {
+            topLoadingBar.style.display = 'block';
+            topLoadingBar.style.width = '30%';
+            setTimeout(() => {
+                topLoadingBar.style.width = '70%';
+                setTimeout(() => {
+                    topLoadingBar.style.width = '100%';
+                    setTimeout(() => {
+                        topLoadingBar.style.display = 'none';
+                        topLoadingBar.style.width = '0';
+                        if(callback) callback();
+                    }, 150);
+                }, 100);
+            }, 100);
+        }
+
+        function switchView(activeViewId) {
+            viewSections.forEach(section => {
+                section.classList.remove('active');
+            });
+            const target = document.getElementById(activeViewId);
+            if (target) {
+                target.classList.add('active');
+                // コンテンツエリアの最上部へスクロール
+                document.querySelector('.content-wrapper').scrollTop = 0;
+            }
+        }
+
+        function showToast(message) {
+            toastNotice.innerText = message;
+            toastNotice.style.display = 'block';
+            setTimeout(() => {
+                toastNotice.style.display = 'none';
+            }, 3000);
+        }
+
+        // --- 画面レンダリングロジック ---
+
+        // 1. サイドバーの登録チャンネルリスト描写
+        function renderSidebarChannels() {
+            // タイトルを残してリセット
+            subsListSection.innerHTML = '<div class="nav-section-title">登録チャンネル</div>';
+            channelsData.forEach(ch => {
+                const btn = document.createElement('button');
+                btn.className = 'nav-item';
+                btn.innerHTML = `
+                    <img src="${ch.avatar}" class="nav-avatar" alt="">
+                    <span>${ch.name}</span>
+                `;
+                btn.addEventListener('click', () => {
+                    triggerLoading(() => navigateToChannel(ch.id));
+                });
+                subsListSection.appendChild(btn);
+            });
+        }
+
+        // 2. 動画カードコンポーネントの構築
+        function createVideoCardElement(video, isMini = false) {
+            const ch = channelsData.find(c => c.id === video.channelId);
+            const card = document.createElement('div');
+            card.className = 'video-card';
+            
+            if (isMini) {
+                // 再生画面の右側サイドバー用の簡易横並びレイアウト（CSSは既存のものをうまく流用）
+                card.style.display = 'flex';
+                card.style.flexDirection = 'row';
+                card.style.gap = '8px';
+            }
+
+            card.innerHTML = `
+                <div class="thumbnail-container" style="${isMini ? 'width:160px; flex-shrink:0;' : ''}">
+                    <img src="https://picsum.photos/seed/${video.id}/360/200" class="thumbnail-img" alt="Thumbnail">
+                    <span class="duration-badge">${video.duration}</span>
+                </div>
+                <div class="video-info-block" style="${isMini ? 'gap:4px;' : ''}">
+                    ${!isMini ? `<img src="${ch.avatar}" class="channel-avatar" data-ch-id="${ch.id}" alt="Avatar">` : ''}
+                    <div class="video-text-meta">
+                        <div class="video-title" style="${isMini ? 'font-size:14px; line-height:18px;' : ''}" title="${video.title}">${video.title}</div>
+                        <div class="video-channel-name" style="${isMini ? 'font-size:12px;' : ''}" data-ch-id="${ch.id}">${ch.name}</div>
+                        <div class="video-stats" style="${isMini ? 'font-size:12px;' : ''}">${video.views} • ${video.time}</div>
+                    </div>
+                </div>
+            `;
+
+            // サムネイル or タイトルクリックで動画再生へ
+            const thumb = card.querySelector('.thumbnail-container');
+            const title = card.querySelector('.video-title');
+            [thumb, title].forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    triggerLoading(() => navigateToWatch(video.id));
+                });
+            });
+
+            // チャンネルアバター or チャンネル名クリックでチャンネルホームへ
+            const chElements = card.querySelectorAll('[data-ch-id]');
+            chElements.forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const chId = el.getAttribute('data-ch-id');
+                    triggerLoading(() => navigateToChannel(chId));
+                });
+            });
+
+            return card;
+        }
+
+        // ホーム画面の動画グリッド描画
+        function renderHomeVideos(filterCategory = "すべて") {
+            mainVideoGrid.innerHTML = "";
+            const filtered = filterCategory === "すべて" 
+                ? videosData 
+                : videosData.filter(v => v.category === filterCategory);
+                
+            filtered.forEach(video => {
+                mainVideoGrid.appendChild(createVideoCardElement(video));
+            });
+        }
+
+        // --- 特定の画面へのナビゲーションとデータ注入 ---
+
+        // 動画再生画面(Watch View)へ
+        function navigateToWatch(videoId) {
+            const video = videosData.find(v => v.id === videoId);
+            const ch = channelsData.find(c => c.id === video.channelId);
+
+            document.getElementById('watch-display-title').innerText = video.title;
+            document.getElementById('watch-channel-name').innerText = ch.name;
+            document.getElementById('watch-channel-avatar').src = ch.avatar;
+            document.getElementById('watch-channel-avatar').setAttribute('data-current-ch-id', ch.id);
+            document.getElementById('watch-channel-subs').innerText = `チャンネル登録者数 ${ch.subs}`;
+            document.getElementById('watch-meta-details').innerText = `視聴回数 ${video.views} • ${video.time} にプレミア公開`;
+
+            // 登録ボタンの状態反映
+            updateSubButton('watch-sub-button', video.channelId);
+
+            // 関連動画（自身以外の動画）を右側にセット
+            const sideContainer = document.getElementById('suggested-videos-container');
+            sideContainer.innerHTML = "";
+            videosData.filter(v => v.id !== videoId).forEach(v => {
+                sideContainer.appendChild(createVideoCardElement(v, true));
+            });
+
+            switchView('watch-view');
+        }
+
+        // チャンネル画面(Channel View)へ
+        function navigateToChannel(channelId) {
+            const ch = channelsData.find(c => c.id === channelId);
+            
+            document.getElementById('channel-view-title').innerText = ch.name;
+            document.getElementById('channel-view-avatar').src = ch.avatar;
+            document.getElementById('channel-view-meta').innerText = `@${ch.handle} • 登録者数 ${ch.subs} • ${ch.videosCount}`;
+            
+            updateSubButton('channel-view-sub-btn', channelId);
+
+            // チャンネル独自の動画をグリッドに表示
+            const chGrid = document.getElementById('channel-video-grid');
+            chGrid.innerHTML = "";
+            const chVideos = videosData.filter(v => v.channelId === channelId);
+            if(chVideos.length === 0) {
+                chGrid.innerHTML = "<p style='color:#aaa; padding:20px;'>動画はありません。</p>";
+            } else {
+                chVideos.forEach(v => {
+                    chGrid.appendChild(createVideoCardElement(v));
+                });
+            }
+
+            switchView('channel-view');
+        }
+
+        // チャンネル登録ボタンのビジュアル同期
+        function updateSubButton(btnId, chId) {
+            const btn = document.getElementById(btnId);
+            if(!btn) return;
+            // カスタム属性で現在の対象を記憶
+            btn.setAttribute('data-active-ch', chId);
+            if (subscribedChannels[chId]) {
+                btn.innerText = "登録済み";
+                btn.classList.add('subbed');
+            } else {
+                btn.innerText = "チャンネル登録";
+                btn.classList.remove('subbed');
+            }
+        }
+
+        function toggleSubscription(btn) {
+            const chId = btn.getAttribute('data-active-ch');
+            if(!chId) return;
+            if(subscribedChannels[chId]) {
+                delete subscribedChannels[chId];
+                showToast("チャンネル登録を解除しました");
+            } else {
+                subscribedChannels[chId] = true;
+                showToast("チャンネル登録が完了しました");
+            }
+            // 画面上の両方のボタンの状態を最新にする
+            updateSubButton('watch-sub-button', chId);
+            updateSubButton('channel-view-sub-btn', chId);
+        }
+
+        // --- イベントリスナー群の設定 ---
+
+        // ハンバーガーメニュー開閉
+        menuToggleBtn.addEventListener('click', () => {
+            sidebarNav.classList.toggle('collapsed');
+        });
+
+        // ロゴクリックでホームに戻る
+        document.getElementById('logo-home-trigger').addEventListener('click', () => {
+            triggerLoading(() => {
+                // 左サイドバーのアクティブ表示をリセットしてホームにする
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                document.querySelector('[data-target-view="home-view"]').classList.add('active');
+                renderHomeVideos("すべて");
+                switchView('home-view');
+            });
+        });
+
+        // 左サイドバーの基本項目クリック遷移
+        document.querySelectorAll('#sidebar-nav .nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const targetView = item.getAttribute('data-target-view');
+                if(!targetView) return;
+
+                document.querySelectorAll('#sidebar-nav .nav-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+
+                triggerLoading(() => {
+                    if (targetView === 'home-view') {
+                        renderHomeVideos("すべて");
+                        switchView('home-view');
+                    } else {
+                        // 他の固定メニューはプレースホルダービューを動的に書き換えて表示
+                        const label = item.querySelector('span').innerText;
+                        document.getElementById('placeholder-title').innerText = label;
+                        switchView('generic-placeholder-view');
+                    }
+                });
+            });
+        });
+
+        // カテゴリタグチップの切り替え
+        document.getElementById('category-tags-container').addEventListener('click', (e) => {
+            if(e.target.classList.contains('tag-chip')) {
+                document.querySelectorAll('.tag-chip').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                const category = e.target.innerText;
+                triggerLoading(() => {
+                    renderHomeVideos(category);
+                });
+            }
+        });
+
+        // 検索機能の再現
+        function executeSearch() {
+            const query = document.getElementById('main-search-input').value.trim();
+            triggerLoading(() => {
+                switchView('home-view');
+                if(query === "") {
+                    renderHomeVideos("すべて");
+                } else {
+                    mainVideoGrid.innerHTML = "";
+                    const matches = videosData.filter(v => v.title.toLowerCase().includes(query.toLowerCase()));
+                    if(matches.length === 0) {
+                        mainVideoGrid.innerHTML = `<p style="color:#aaa; padding:40px; text-align:center; grid-column: 1/-1;">「${query}」に一致する動画が見つかりませんでした。</p>`;
+                    } else {
+                        matches.forEach(video => {
+                            mainVideoGrid.appendChild(createVideoCardElement(video));
+                        });
+                    }
+                    showToast(`「${query}」の検索結果を表示しました`);
+                }
+            });
+        }
+        document.getElementById('main-search-execute').addEventListener('click', executeSearch);
+        document.getElementById('main-search-input').addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') executeSearch();
+        });
+
+        // 再生画面内のアバター単体クリックもチャンネルに紐付け
+        document.getElementById('watch-channel-avatar').addEventListener('click', () => {
+            const chId = document.getElementById('watch-channel-avatar').getAttribute('data-current-ch-id');
+            if(chId) triggerLoading(() => navigateToChannel(chId));
+        });
+
+        // 登録ボタンのクリックイベント
+        document.getElementById('watch-sub-button').addEventListener('click', (e) => toggleSubscription(e.target));
+        document.getElementById('channel-view-sub-btn').addEventListener('click', (e) => toggleSubscription(e.target));
+
+        // その他のヘッダーアクションボタン
+        document.getElementById('mic-action-btn').addEventListener('click', () => showToast("音声認識マイクが起動しました（モック）"));
+        document.getElementById('create-video-btn').addEventListener('click', () => showToast("動画のアップロード / ライブ配信を開始画面（モック）"));
+        document.getElementById('notifications-btn').addEventListener('click', () => showToast("通知センター: 新着の通知はありません"));
+        document.getElementById('my-profile-trigger').addEventListener('click', () => showToast("ユーザーメニュー: マイチャンネル / アカウント切り替え（モック）"));
+
+        // アプリ起動時の初期初期化
+        window.addEventListener('DOMContentLoaded', () => {
+            renderSidebarChannels();
+            renderHomeVideos("すべて");
+        });
+    </script>
+</body>
+</html>
