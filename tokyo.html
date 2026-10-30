@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>東京災害サンドボックス - Tokyo Disaster Sandbox</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #05050a;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            color: #fff;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* コントロールパネル */
+        .ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(15, 15, 25, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 16px;
+            width: 320px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .ui-panel::-webkit-scrollbar {
+            width: 0px;
+        }
+        h1 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 2px solid #ff3366;
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 span {
+            font-size: 0.7rem;
+            background: #ff3366;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .control-group {
+            margin-bottom: 18px;
+        }
+        .control-label {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 8px;
+            display: block;
+            font-weight: bold;
+        }
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        .btn.active {
+            background: #ff3366;
+            border-color: #ff3366;
+            box-shadow: 0 0 12px rgba(255, 51, 102, 0.5);
+        }
+        .btn.active.tornado-btn {
+            background: #00ccff;
+            border-color: #00ccff;
+            box-shadow: 0 0 12px rgba(0, 204, 255, 0.5);
+        }
+        .btn-full {
+            grid-column: span 2;
+        }
+        .btn-reset {
+            background: rgba(255, 153, 0, 0.2);
+            border-color: rgba(255, 153, 0, 0.4);
+            color: #ff9900;
+        }
+        .btn-reset:hover {
+            background: rgba(255, 153, 0, 0.4);
+            color: #fff;
+        }
+        .slider-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .slider-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #bbb;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none;
+            accent-color: #ff3366;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ff3366;
+            box-shadow: 0 0 8px #ff3366;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        #eq-slider {
+            accent-color: #ffcc00;
+        }
+        #eq-slider::-webkit-slider-thumb {
+            background: #ffcc00;
+            box-shadow: 0 0 8px #ffcc00;
+        }
+        /* ニュース速報風テロップ */
+        #news-ticker {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            width: 80%;
+            max-width: 800px;
+            background: rgba(200, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            border-left: 6px solid #fff;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            font-weight: bold;
+            display: none;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+            50% { box-shadow: 0 10px 30px rgba(255,0,0,0.4); }
+            100% { box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        }
+        #news-title {
+            color: #fff;
+            font-size: 0.8rem;
+            background: #000;
+            padding: 2px 6px;
+            margin-right: 10px;
+            border-radius: 2px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        #news-text {
+            display: inline-block;
+            vertical-align: middle;
+            font-size: 0.95rem;
+            letter-spacing: 1px;
+        }
+        /* 操作説明インフォ */
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(0,0,0,0.6);
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #ccc;
+            pointer-events: none;
+            line-height: 1.6;
+            border-left: 4px solid #ff3366;
+        }
+        /* メッセージボックス */
+        #message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 10, 20, 0.9);
+            border: 2px solid #ff3366;
+            padding: 30px;
+            border-radius: 12px;
+            z-index: 100;
+            text-align: center;
+            max-width: 85%;
+            width: 400px;
+            box-shadow: 0 0 30px rgba(255,51,102,0.3);
+            display: none;
+        }
+        #message-box p {
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        #message-box button {
+            background: #ff3366;
+            border: none;
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div class="ui-panel">
+        <h1>TOKYO HYPER-CAM <span>v2.8</span></h1>
+        
+        <!-- 環境時間メーター -->
+        <div class="control-group">
+            <span class="control-label">環境時間メーター (TIME OF DAY)</span>
+            <div class="slider-wrapper">
+                <input type="range" id="time-slider" min="0" max="24" step="0.1" value="12" oninput="onTimeSliderChange(this.value)">
+                <div class="slider-meta">
+                    <span>0:00 (夜)</span>
+                    <span id="time-display" style="color: #ff3366; font-weight: bold;">12:00 (昼間)</span>
+                    <span>24:00 (夜)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 地震システムメーター -->
+        <div class="control-group">
+            <span class="control-label">地震システムメーター (震度 0 〜 15)</span>
+            <div class="slider-wrapper">
+                <input type="range" id="eq-slider" min="0" max="15" step="0.1" value="0" oninput="onEqSliderChange(this.value)">
+                <div class="slider-meta">
+                    <span>震度0 (静穏)</span>
+                    <span id="eq-display" style="color: #ffcc00; font-weight: bold;">停止 (震度0)</span>
+                    <span>震度15 (次元崩壊)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 複数竜巻コントロール -->
+        <div class="control-group">
+            <span class="control-label">気象兵器 (MULTIPLE TORNADO)</span>
+            <div class="btn-grid">
+                <div class="btn active" id="tor-off" onclick="clearAllTornadoes()">竜巻を全消去</div>
+                <div class="btn tornado-btn" id="tor-on" onclick="addCentralTornado()">中央に竜巻追加</div>
+            </div>
+        </div>
+
+        <!-- リセット -->
+        <div class="control-group" style="margin-bottom: 0;">
+            <div class="btn btn-full btn-reset" onclick="resetCity()">都市と住民を復旧</div>
+        </div>
+    </div>
+
+    <!-- ニュース速報テロップ -->
+    <div id="news-ticker">
+        <span id="news-title">災害速報</span>
+        <span id="news-text">東京都心で異常気象および地殻変動が感知されました。</span>
+    </div>
+
+    <!-- 操作インフォメーション -->
+    <div class="info-panel">
+        <b style="color: #00ffcc;">W / A / S / D キー: 【超爆速】飛行カメラ移動</b><br>
+        <b style="color: #ffaa00;">Q キー: 垂直上昇 ↑ / E キー: 垂直下降 ↓</b><br>
+        画面ドラッグ: カメラの角度（視点）回転<br>
+        マウスホイール / ピンチ: ズームイン・アウト<br>
+        街をタップ: タップした場所に新しい竜巻を生成！<br>
+        <span style="color: #aaa; font-size: 0.75rem;">※広大な8倍マップ(1700x1700)を瞬時に高速縦横断可能！</span>
+    </div>
+
+    <div id="message-box">
+        <p id="message-text">都市が完全にリセットされました。</p>
+        <button onclick="closeMessageBox()">確認</button>
+    </div>
+
+    <script>
+        // -------------------------------------------------------------
+        // グローバル変数定義
+        // -------------------------------------------------------------
+        let scene, camera, renderer;
+        let buildings = [];
+        let people = []; 
+        let groundMesh; 
+        let tornadoes = []; 
+
+        let isEarthquake = false;
+        let earthquakeLevel = 0.0; 
+        let currentTime = 12.0;
+
+        // ライティングオブジェクト
+        let ambientLight, directionalLight, hemiLight;
+
+        // カメラ・インタラクション用変数
+        let isDragging = false;
+        let hasMoved = false; 
+        let previousMousePosition = { x: 0, y: 0 };
+        let theta = 45 * Math.PI / 180;
+        let phi = 60 * Math.PI / 180;
+        let cameraRadius = 260; 
+        
+        const targetLookAt = new THREE.Vector3(0, 10, 0); 
+        
+        // ★コア変更点：QとEキーの上昇・下降入力をバッファにバインド
+        const keysPressed = { w: false, a: false, s: false, d: false, q: false, e: false };
+
+        // -------------------------------------------------------------
+        // アプリケーション初期化
+        // -------------------------------------------------------------
+        window.onload = function() {
+            initEngine();
+            createTokyoCity();
+            createPeople(); 
+            setupInteraction();
+            setupKeyboardControls();
+            
+            updateEnvironmentByTime(12.0);
+            animateLoop();
+            
+            showMessage("【飛行カメラ超爆速化 ＆ QE高度化アップデート！】<br>広大な東京マップを限界ストレスフリーで滑空できるよう、WASDの飛行移動スピードを<b>従来の約3倍（超ハイパースピード仕様）</b>へとギアを引き上げました！<br>さらに、ユーザー様の「ｑ」入力の意図に基づき、<b>【Q】キーで垂直上昇・【E】キーで垂直下降</b>を行える高度制御システムを追加。高層ビル群の合間をすり抜ける神の視点をお楽しみください。");
+        };
+
+        function initEngine() {
+            const container = document.getElementById('canvas-container');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xdce7eb);
+            scene.fog = new THREE.FogExp2(0xdce7eb, 0.0006); 
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 3000);
+            updateCameraPosition();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.3);
+            hemiLight.position.set(0, 400, 0);
+            scene.add(hemiLight);
+
+            directionalLight = new THREE.DirectionalLight(0xfffaed, 0.8);
+            directionalLight.position.set(400, 500, 200);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.camera.top = 800;
+            directionalLight.shadow.camera.bottom = -800;
+            directionalLight.shadow.camera.left = -800;
+            directionalLight.shadow.camera.right = 800;
+            directionalLight.shadow.camera.near = 0.1;
+            directionalLight.shadow.camera.far = 2000;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        // -------------------------------------------------------------
+        // 東京の都市再現（850高層ビル＋メガ配置）
+        // -------------------------------------------------------------
+        function createTokyoCity() {
+            const groundGeo = new THREE.PlaneGeometry(1700, 1700);
+            const groundMat = new THREE.MeshStandardMaterial({ 
+                color: 0x1e2126, 
+                roughness: 0.85,
+                metalness: 0.1
+            });
+            groundMesh = new THREE.Mesh(groundGeo, groundMat);
+            groundMesh.rotation.x = -Math.PI / 2;
+            groundMesh.receiveShadow = true;
+            scene.add(groundMesh);
+
+            const gridHelper = new THREE.GridHelper(1700, 100, 0xff3366, 0x3d414a);
+            gridHelper.position.y = 0.05;
+            scene.add(gridHelper);
+
+            createTokyoTower(0, 0);
+            createSkyTree(250, -300); 
+
+            for (let i = 0; i < 850; i++) {
+                let x = (Math.random() - 0.5) * 1620;
+                let z = (Math.random() - 0.5) * 1620;
+                
+                if (Math.sqrt(x*x + z*z) < 35) continue; 
+                if (Math.sqrt((x-250)*(x-250) + (z+300)*(z+300)) < 40) continue;
+
+                let w = 6 + Math.random() * 11;
+                let h = 15 + Math.pow(Math.random(), 2) * 85; 
+                let d = 6 + Math.random() * 11;
+
+                let buildingColor;
+                let isCyberNeon = false;
+                const randStyle = Math.random();
+                if (randStyle < 0.3) {
+                    buildingColor = 0x5a6575;
+                } else if (randStyle < 0.6) {
+                    buildingColor = 0x34495e;
+                } else if (randStyle < 0.85) {
+                    buildingColor = 0x1a252f;
+                    isCyberNeon = true;
+                } else {
+                    buildingColor = 0x95a5a6;
+                }
+
+                const bGeo = new THREE.BoxGeometry(w, h, d);
+                const bMat = new THREE.MeshStandardMaterial({
+                    color: buildingColor,
+                    roughness: 0.4,
+                    metalness: 0.3,
+                    emissive: isCyberNeon ? 0x00ccff : 0x111122,
+                    emissiveIntensity: 0.0 
+                });
+
+                const bMesh = new THREE.Mesh(bGeo, bMat);
+                bMesh.position.set(x, h / 2, z);
+                bMesh.castShadow = true;
+                bMesh.receiveShadow = true;
+                scene.add(bMesh);
+
+                buildings.push({
+                    mesh: bMesh,
+                    type: 'standard',
+                    initialPos: new THREE.Vector3(x, h/2, z),
+                    initialRot: new THREE.Vector3(0, 0, 0),
+                    height: h,
+                    isCollapsed: false,
+                    collapseDirX: 0,
+                    collapseDirZ: 0,
+                    structureStrength: 0.4 + Math.random() * 1.6,
+                    tornadoFly: false,
+                    flyVector: null
+                });
+            }
+        }
+
+        function createTokyoTower(x, z) {
+            const towerGroup = new THREE.Group();
+            const redMat = new THREE.MeshStandardMaterial({ color: 0xff3300, roughness: 0.5, metalness: 0.4, emissive: 0xff1100, emissiveIntensity: 0 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, emissive: 0x555555, emissiveIntensity: 0 });
+            
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(8, 14, 20, 4, 1, true), redMat);
+            base.position.y = 10;
+            towerGroup.add(base);
+
+            const obs1 = new THREE.Mesh(new THREE.BoxGeometry(14, 4, 14), whiteMat);
+            obs1.position.y = 21;
+            towerGroup.add(obs1);
+
+            const mid = new THREE.Mesh(new THREE.CylinderGeometry(4, 7, 35, 4, 1, true), redMat);
+            mid.position.y = 40;
+            towerGroup.add(mid);
+
+            const obs2 = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 5.5, 3, 8), whiteMat);
+            obs2.position.y = 59;
+            towerGroup.add(obs2);
+
+            const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 2.0, 35, 4), redMat);
+            ant.position.y = 76;
+            towerGroup.add(ant);
+
+            towerGroup.position.set(x, 0, z);
+            towerGroup.traverse(child => { if(child.isMesh) child.castShadow = true; });
+            scene.add(towerGroup);
+
+            buildings.push({
+                mesh: towerGroup,
+                type: 'tokyotower',
+                initialPos: new THREE.Vector3(x, 0, z),
+                initialRot: new THREE.Vector3(0, 0, 0),
+                height: 95,
+                isCollapsed: false,
+                structureStrength: 4.0,
+                tornadoFly: false,
+                flyVector: null
+            });
+        }
+
+        function createSkyTree(x, z) {
+            const treeGroup = new THREE.Group();
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xeeffff, roughness: 0.3, metalness: 0.5, emissive: 0x22ddff, emissiveIntensity: 0 });
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 11, 130, 6, 5), bodyMat);
+            body.position.y = 65;
+            treeGroup.add(body);
+
+            const deckMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            const deck1 = new THREE.Mesh(new THREE.CylinderGeometry(7, 5.5, 5, 12), deckMat);
+            deck1.position.y = 85;
+            treeGroup.add(deck1);
+
+            const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.8, 30, 4), new THREE.MeshStandardMaterial({ color: 0xaaaaaa }));
+            ant.position.y = 145;
+            treeGroup.add(ant);
+
+            treeGroup.position.set(x, 0, z);
+            treeGroup.traverse(child => { if(child.isMesh) child.castShadow = true; });
+            scene.add(treeGroup);
+
+            buildings.push({
+                mesh: treeGroup,
+                type: 'skytree',
+                initialPos: new THREE.Vector3(x, 0, z),
+                initialRot: new THREE.Vector3(0, 0, 0),
+                height: 160,
+                isCollapsed: false,
+                structureStrength: 5.5,
+                tornadoFly: false,
+                flyVector: null
+            });
+        }
+
+        function createPeople() {
+            const peopleCount = 400; 
+            
+            for (let i = 0; i < peopleCount; i++) {
+                let x = (Math.random() - 0.5) * 1640;
+                let z = (Math.random() - 0.5) * 1640;
+
+                const personGroup = new THREE.Group();
+
+                const clothColors = [0xff3366, 0x00ccff, 0x33cc33, 0xffaa00, 0xcc33ff, 0xffffff];
+                const randColor = clothColors[Math.floor(Math.random() * clothColors.length)];
+                
+                const torsoMat = new THREE.MeshStandardMaterial({ color: randColor, roughness: 0.5 });
+                const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.5 }); 
+                const legMat = new THREE.MeshStandardMaterial({ color: 0x223355, roughness: 0.6 });  
+
+                const torsoMesh = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.2, 0.9), torsoMat);
+                torsoMesh.position.y = 2.3;
+                torsoMesh.castShadow = true;
+                personGroup.add(torsoMesh);
+
+                const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.65, 8, 8), skinMat);
+                headMesh.position.y = 3.8;
+                headMesh.castShadow = true;
+                personGroup.add(headMesh);
+
+                const legGeo = new THREE.BoxGeometry(0.5, 1.2, 0.5);
+                const leftLeg = new THREE.Mesh(legGeo, legMat);
+                leftLeg.position.set(-0.45, 0.6, 0);
+                leftLeg.castShadow = true;
+                personGroup.add(leftLeg);
+
+                const rightLeg = leftLeg.clone();
+                rightLeg.position.x = 0.45;
+                personGroup.add(rightLeg);
+
+                const armGeo = new THREE.BoxGeometry(0.4, 1.6, 0.4);
+                const leftArm = new THREE.Mesh(armGeo, torsoMat);
+                leftArm.position.set(-1.0, 2.3, 0);
+                leftArm.castShadow = true;
+                personGroup.add(leftArm);
+
+                const rightArm = leftArm.clone();
+                rightArm.position.x = 1.0;
+                personGroup.add(rightArm);
+
+                personGroup.position.set(x, 0, z);
+                scene.add(personGroup);
+
+                people.push({
+                    mesh: personGroup,
+                    leftLeg: leftLeg,
+                    rightLeg: rightLeg,
+                    leftArm: leftArm,
+                    rightArm: rightArm,
+                    initialPos: new THREE.Vector3(x, 0, z),
+                    dir: Math.random() * Math.PI * 2, 
+                    speed: 0.18 + Math.random() * 0.15, 
+                    tornadoFly: false,
+                    flyVector: null,
+                    isDead: false,
+                    animOffset: Math.random() * 100 
+                });
+            }
+        }
+
+        function createSingleTornadoInstance(x, z) {
+            const particleCount = 1400; 
+            const tornadoGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            
+            tornadoGeometry.pAngles = [];
+            tornadoGeometry.pHeights = [];
+            tornadoGeometry.pSpeeds = [];
+
+            for (let i = 0; i < particleCount; i++) {
+                let h = Math.random() * 125; 
+                let angle = Math.random() * Math.PI * 2;
+                let baseRadius = 3 + (h * 0.35); 
+                let r = baseRadius + (Math.random() - 0.5) * 7;
+
+                let px = Math.cos(angle) * r;
+                let pz = Math.sin(angle) * r;
+
+                positions[i * 3] = px;
+                positions[i * 3 + 1] = h;
+                positions[i * 3 + 2] = pz;
+
+                tornadoGeometry.pAngles.push(angle);
+                tornadoGeometry.pHeights.push(h);
+                tornadoGeometry.pSpeeds.push(0.06 + Math.random() * 0.08);
+            }
+
+            tornadoGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            const tornadoMaterial = new THREE.PointsMaterial({
+                color: new THREE.Color().setHSL(Math.random(), 0.25, 0.6), 
+                size: 1.8,
+                transparent: true,
+                opacity: 0.7, 
+                blending: THREE.NormalBlending
+            });
+
+            const pointsMesh = new THREE.Points(tornadoGeometry, tornadoMaterial);
+            pointsMesh.position.set(x, 0, z);
+            scene.add(pointsMesh);
+
+            tornadoes.push({
+                points: pointsMesh,
+                geometry: tornadoGeometry,
+                center: { x: x, z: z },
+                currentPos: { x: x, z: z },
+                angle: Math.random() * Math.PI * 2
+            });
+
+            document.getElementById('tor-off').classList.remove('active');
+            document.getElementById('tor-on').classList.add('active');
+        }
+
+        // -------------------------------------------------------------
+        // キーボード入力バッファリスナー
+        // -------------------------------------------------------------
+        function setupKeyboardControls() {
+            window.addEventListener('keydown', (e) => {
+                const key = e.key.toLowerCase();
+                if (key in keysPressed) {
+                    keysPressed[key] = true;
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const key = e.key.toLowerCase();
+                if (key in keysPressed) {
+                    keysPressed[key] = false;
+                }
+            });
+        }
+
+        // ★コア変更点：移動スピードを「5.5」から「15.0」へと約3倍に超高速バースト化！さらにQ/Eで高度が変化！
+        function updateKeyboardCameraMovement() {
+            let hasInput = false;
+            const moveSpeed = 15.0; 
+
+            let forwardX = -Math.sin(theta);
+            let forwardZ = -Math.cos(theta);
+            let rightX = -Math.cos(theta);
+            let rightZ = Math.sin(theta);
+
+            const moveVector = new THREE.Vector3(0, 0, 0);
+
+            if (keysPressed.w) { moveVector.x += forwardX; moveVector.z += forwardZ; hasInput = true; }
+            if (keysPressed.s) { moveVector.x -= forwardX; moveVector.z -= forwardZ; hasInput = true; }
+            if (keysPressed.a) { moveVector.x -= rightX; moveVector.z -= rightZ; hasInput = true; }
+            if (keysPressed.d) { moveVector.x += rightX; moveVector.z += rightZ; hasInput = true; }
+
+            // ★コア新機能：Qキーで上昇、Eキーで下降（注視点の基準Y高度を変更）
+            if (keysPressed.q) { targetLookAt.y += moveSpeed * 0.4; hasInput = true; }
+            if (keysPressed.e) { targetLookAt.y -= moveSpeed * 0.4; hasInput = true; }
+
+            if (hasInput) {
+                // 水平移動成分がある場合のみ適用
+                if (moveVector.lengthSq() > 0) {
+                    moveVector.normalize().multiplyScalar(moveSpeed);
+                    targetLookAt.x += moveVector.x;
+                    targetLookAt.z += moveVector.z;
+                }
+
+                // 各種移動境界境界ガードの適用（1700マップサイズ対応）
+                targetLookAt.x = Math.max(-840, Math.min(840, targetLookAt.x));
+                targetLookAt.z = Math.max(-840, Math.min(840, targetLookAt.z));
+                targetLookAt.y = Math.max(2, Math.min(350, targetLookAt.y)); // 高度の上限・下限ガード
+
+                updateCameraPosition();
+            }
+        }
+
+        // -------------------------------------------------------------
+        // マウス・タッチドラッグとレイキャスト
+        // -------------------------------------------------------------
+        function setupInteraction() {
+            const dom = renderer.domElement;
+
+            dom.addEventListener('mousedown', (e) => {
+                isDragging = true; hasMoved = false;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                let deltaX = e.clientX - previousMousePosition.x;
+                let deltaY = e.clientY - previousMousePosition.y;
+
+                if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) hasMoved = true;
+
+                theta -= deltaX * 0.005;
+                phi -= deltaY * 0.005;
+                phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.03, phi));
+
+                updateCameraPosition();
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', (e) => {
+                if (isDragging && !hasMoved) handleMapTap(e.clientX, e.clientY);
+                isDragging = false;
+            });
+
+            window.addEventListener('wheel', (e) => {
+                cameraRadius += e.deltaY * 0.18; 
+                cameraRadius = Math.max(50, Math.min(750, cameraRadius));
+                updateCameraPosition();
+            }, { passive: true });
+
+            dom.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true; hasMoved = false;
+                    previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            }, { passive: true });
+
+            dom.addEventListener('touchmove', (e) => {
+                if (!isDragging || e.touches.length !== 1) return;
+                let deltaX = e.touches[0].clientX - previousMousePosition.x;
+                let deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+                if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) hasMoved = true;
+
+                theta -= deltaX * 0.008;
+                phi -= deltaY * 0.008;
+                phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.03, phi));
+
+                updateCameraPosition();
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }, { passive: true });
+
+            dom.addEventListener('touchend', () => {
+                if (isDragging && !hasMoved) handleMapTap(previousMousePosition.x, previousMousePosition.y);
+                isDragging = false;
+            });
+        }
+
+        function handleMapTap(clientX, clientY) {
+            if (!groundMesh) return;
+            const raycaster = new THREE.Raycaster();
+            const mouseCoord = new THREE.Vector2();
+            mouseCoord.x = (clientX / window.innerWidth) * 2 - 1;
+            mouseCoord.y = -(clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouseCoord, camera);
+            const intersects = raycaster.intersectObject(groundMesh);
+
+            if (intersects.length > 0) {
+                const intersectPoint = intersects[0].point;
+                createSingleTornadoInstance(intersectPoint.x, intersectPoint.z);
+                showTicker(`【気象災害】新しい竜巻を座標（X: ${Math.floor(intersectPoint.x)}, Z: ${Math.floor(intersectPoint.z)}）に生成！ 現在計 ${tornadoes.length} 基の竜巻が同時発生中！`);
+            }
+        }
+
+        function updateCameraPosition() {
+            camera.position.x = targetLookAt.x + cameraRadius * Math.sin(phi) * Math.sin(theta);
+            camera.position.y = targetLookAt.y + cameraRadius * Math.cos(phi);
+            camera.position.z = targetLookAt.z + cameraRadius * Math.sin(phi) * Math.cos(theta);
+            camera.lookAt(targetLookAt);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // -------------------------------------------------------------
+        // 無段階コントロールメーター同期
+        // -------------------------------------------------------------
+        function onEqSliderChange(value) {
+            earthquakeLevel = parseFloat(value);
+            isEarthquake = earthquakeLevel > 0;
+
+            const display = document.getElementById('eq-display');
+            const slider = document.getElementById('eq-slider');
+
+            if (earthquakeLevel === 0) {
+                display.innerText = "停止 (震度0)"; display.style.color = "#ffcc00"; slider.style.accentColor = "#ffcc00";
+                if(tornadoes.length === 0) document.getElementById('news-ticker').style.display = 'none';
+                updateCameraPosition();
+            } else if (earthquakeLevel > 0 && earthquakeLevel < 5) {
+                display.innerText = `微震 (震度 ${earthquakeLevel.toFixed(1)})`; display.style.color = "#00ffcc"; slider.style.accentColor = "#00ffcc";
+                showTicker(`【地殻変動感知】震度 ${earthquakeLevel.toFixed(1)} の軽微な揺れを計測中。`);
+            } else if (earthquakeLevel >= 5 && earthquakeLevel < 7) {
+                display.innerText = `強震 (震度 ${earthquakeLevel.toFixed(1)})`; display.style.color = "#ff9900"; slider.style.accentColor = "#ff9900";
+                showTicker(`【災害警戒】震度 ${earthquakeLevel.toFixed(1)} を記録！高層ビルのしなりに注意。`);
+            } else if (earthquakeLevel >= 7 && earthquakeLevel < 10) {
+                display.innerText = `激震 (震度 ${earthquakeLevel.toFixed(1)} / 崩壊)`; display.style.color = "#ff3300"; slider.style.accentColor = "#ff3300";
+                showTicker(`【大震災速報】震度 ${earthquakeLevel.toFixed(1)}！東京の全インフラが破砕・倒壊し始めました！`);
+            } else if (earthquakeLevel >= 10 && earthquakeLevel < 14) {
+                display.innerText = `超震 (震度 ${earthquakeLevel.toFixed(1)} / 地殻フリップ)`; display.style.color = "#ff0066"; slider.style.accentColor = "#ff0066";
+                showTicker(`【天変地異アラート】震度 ${earthquakeLevel.toFixed(1)}！重力波の乱れにより、物質が地上から弾き飛ばされています！`);
+            } else {
+                display.innerText = `神震 (震度 ${earthquakeLevel.toFixed(1)} / 次元崩壊)`; display.style.color = "#cc00ff"; slider.style.accentColor = "#cc00ff";
+                showTicker(`【■■警告■■】最大震度 ${earthquakeLevel.toFixed(1)} 到達。空間の構造維持が不可能です！`);
+            }
+        }
+
+        function onTimeSliderChange(value) {
+            currentTime = parseFloat(value);
+            const hours = Math.floor(currentTime);
+            const minutes = Math.floor((currentTime % 1) * 60).toString().padStart(2, '0');
+            
+            let status = "昼間";
+            if (currentTime < 4.5 || currentTime > 19.5) status = "夜間 (サイバー)";
+            else if (currentTime >= 4.5 && currentTime < 7.0) status = "朝焼け";
+            else if (currentTime >= 16.5 && currentTime <= 19.5) status = "夕暮れ";
+            
+            document.getElementById('time-display').innerText = `${hours}:${minutes} (${status})`;
+            updateEnvironmentByTime(currentTime);
+        }
+
+        function updateEnvironmentByTime(time) {
+            let skyColor = new THREE.Color(); let ambientColor = new THREE.Color(); let directionalColor = new THREE.Color();
+            let ambientIntensity = 0.6; let dirIntensity = 0.8; let neonIntensity = 0.0; 
+
+            const cNightBg = new THREE.Color(0x020208); const cNightAmb = new THREE.Color(0x222244); const cNightDir = new THREE.Color(0x6a0dad); 
+            const cMorningBg = new THREE.Color(0xfca3b7); const cMorningAmb = new THREE.Color(0x665566); const cMorningDir = new THREE.Color(0xffaa66);
+            const cDayBg = new THREE.Color(0xdce7eb); const cDayAmb = new THREE.Color(0xffffff); const cDayDir = new THREE.Color(0xfffaed);
+            const cEveningBg = new THREE.Color(0xcc4422); const cEveningAmb = new THREE.Color(0x553333); const cEveningDir = new THREE.Color(0xff6600);
+
+            const sunAngle = ((time - 6) / 24) * Math.PI * 2;
+            directionalLight.position.set(Math.cos(sunAngle) * 500, Math.sin(sunAngle) * 400, Math.sin(sunAngle * 0.5) * 200);
+
+            if (time >= 0 && time < 4.5) {
+                skyColor.copy(cNightBg); ambientColor.copy(cNightAmb); directionalColor.copy(cNightDir);
+                ambientIntensity = 0.35; dirIntensity = 0.45; neonIntensity = 1.0;
+            } else if (time >= 4.5 && time < 7.0) {
+                let alpha = (time - 4.5) / 2.5;
+                skyColor.lerpColors(cNightBg, cMorningBg, alpha); ambientColor.lerpColors(cNightAmb, cMorningAmb, alpha); directionalColor.lerpColors(cNightDir, cMorningDir, alpha);
+                ambientIntensity = THREE.MathUtils.lerp(0.35, 0.55, alpha); dirIntensity = THREE.MathUtils.lerp(0.45, 0.75, alpha); neonIntensity = THREE.MathUtils.lerp(1.0, 0.0, alpha);
+            } else if (time >= 7.0 && time < 9.5) {
+                let alpha = (time - 7.0) / 2.5;
+                skyColor.lerpColors(cMorningBg, cDayBg, alpha); ambientColor.lerpColors(cMorningAmb, cDayAmb, alpha); directionalColor.lerpColors(cMorningDir, cDayDir, alpha);
+                ambientIntensity = THREE.MathUtils.lerp(0.55, 0.65, alpha); dirIntensity = THREE.MathUtils.lerp(0.75, 0.85, alpha); neonIntensity = 0.0;
+            } else if (time >= 9.5 && time < 16.0) {
+                skyColor.copy(cDayBg); ambientColor.copy(cDayAmb); directionalColor.copy(cDayDir);
+                ambientIntensity = 0.65; dirIntensity = 0.85; neonIntensity = 0.0;
+            } else if (time >= 16.0 && time < 18.5) {
+                let alpha = (time - 16.0) / 2.5;
+                skyColor.lerpColors(cDayBg, cEveningBg, alpha); ambientColor.lerpColors(cDayAmb, cEveningAmb, alpha); directionalColor.lerpColors(cDayDir, cEveningDir, alpha);
+                ambientIntensity = THREE.MathUtils.lerp(0.65, 0.50, alpha); dirIntensity = THREE.MathUtils.lerp(0.85, 0.70, alpha); neonIntensity = THREE.MathUtils.lerp(0.0, 0.5, alpha);
+            } else if (time >= 18.5 && time < 21.0) {
+                let alpha = (time - 18.5) / 2.5;
+                skyColor.lerpColors(cEveningBg, cNightBg, alpha); ambientColor.lerpColors(cEveningAmb, cNightAmb, alpha); directionalColor.lerpColors(cEveningDir, cNightDir, alpha);
+                ambientIntensity = THREE.MathUtils.lerp(0.50, 0.35, alpha); dirIntensity = THREE.MathUtils.lerp(0.70, 0.45, alpha); neonIntensity = THREE.MathUtils.lerp(0.5, 1.0, alpha);
+            } else {
+                skyColor.copy(cNightBg); ambientColor.copy(cNightAmb); directionalColor.copy(cNightDir);
+                ambientIntensity = 0.35; dirIntensity = 0.45; neonIntensity = 1.0;
+            }
+
+            scene.background.copy(skyColor); scene.fog.color.copy(skyColor);
+            ambientLight.color.copy(ambientColor); ambientLight.intensity = ambientIntensity;
+            directionalLight.color.copy(directionalColor); directionalLight.intensity = dirIntensity;
+
+            buildings.forEach(b => {
+                if (b.mesh && b.mesh.material && b.mesh.material.emissive) b.mesh.material.emissiveIntensity = neonIntensity * 0.8;
+                b.mesh.traverse(child => {
+                    if (child.isMesh && child.material && child.material.emissive) child.material.emissiveIntensity = neonIntensity * 1.2;
+                });
+            });
+        }
+
+        // -------------------------------------------------------------
+        // メインシミュレーション物理ループ
+        // -------------------------------------------------------------
+        function animateLoop() {
+            requestAnimationFrame(animateLoop);
+            const timestamp = Date.now();
+
+            // 毎フレーム、非同期キーボード入力をポーリング移動（WASD + QE）
+            updateKeyboardCameraMovement();
+
+            // --- 地震物理システム ---
+            if (isEarthquake) {
+                let shakeIntensity = Math.pow(earthquakeLevel, 1.6) * 0.08;
+                camera.position.x += (Math.random() - 0.5) * shakeIntensity;
+                camera.position.y += (Math.random() - 0.5) * shakeIntensity;
+                camera.position.z += (Math.random() - 0.5) * shakeIntensity;
+                camera.lookAt(targetLookAt);
+
+                buildings.forEach(b => {
+                    if (!b.tornadoFly) {
+                        let localShake = Math.sin(timestamp * 0.08 + b.initialPos.x) * shakeIntensity * (b.height * 0.05);
+                        b.mesh.position.x = b.initialPos.x + localShake;
+
+                        let collapseChance = 1 / (b.structureStrength * (300 / Math.pow(earthquakeLevel, 2)));
+                        if (earthquakeLevel >= 7.0 && !b.isCollapsed && Math.random() < collapseChance) {
+                            b.isCollapsed = true;
+                            b.collapseDirX = (Math.random() - 0.5) * 0.006 * earthquakeLevel;
+                            b.collapseDirZ = (Math.random() - 0.5) * 0.006 * earthquakeLevel;
+                        }
+
+                        if (b.isCollapsed) {
+                            if (b.type === 'standard') {
+                                b.mesh.rotation.x += b.collapseDirX; b.mesh.rotation.z += b.collapseDirZ;
+                                let maxAngle = earthquakeLevel >= 10.0 ? Math.PI : 1.2;
+                                b.mesh.rotation.x = Math.max(-maxAngle, Math.min(maxAngle, b.mesh.rotation.x));
+                                b.mesh.rotation.z = Math.max(-maxAngle, Math.min(maxAngle, b.mesh.rotation.z));
+                                if (b.mesh.position.y > -b.height * 0.2) b.mesh.position.y -= 0.03 * earthquakeLevel;
+                            } else {
+                                b.mesh.rotation.z += 0.001 * earthquakeLevel;
+                                let maxTowerRot = earthquakeLevel >= 10.0 ? 0.8 : 0.25;
+                                if(b.mesh.rotation.z > maxTowerRot) b.mesh.rotation.z = maxTowerRot;
+                                if(earthquakeLevel >= 12.0 && b.mesh.position.y > -20) b.mesh.position.y -= 0.3;
+                            }
+                        }
+
+                        if (earthquakeLevel >= 12.0 && Math.random() < 0.0005) {
+                            b.tornadoFly = false; b.isCollapsed = true;
+                            b.flyVector = new THREE.Vector3((Math.random() - 0.5) * 5, 3 + Math.random() * 4, (Math.random() - 0.5) * 5);
+                        }
+                    }
+                });
+            }
+
+            // フライベクトルの自由落下物理
+            buildings.forEach(b => {
+                if (b.flyVector) {
+                    b.mesh.position.add(b.flyVector); b.flyVector.y -= 0.12;
+                    b.mesh.rotation.x += 0.04; b.mesh.rotation.y += 0.04;
+                    if (b.mesh.position.y <= -b.height / 2) { b.mesh.position.y = -b.height / 2; b.flyVector = null; }
+                }
+            });
+
+            // --- マルチ竜巻システム並列演算 ---
+            if (tornadoes.length > 0) {
+                tornadoes.forEach(tor => {
+                    tor.angle += 0.005;
+                    tor.currentPos.x = tor.center.x + Math.sin(tor.angle * 1.4) * 110 + Math.cos(tor.angle * 0.4) * 30;
+                    tor.currentPos.z = tor.center.z + Math.cos(tor.angle * 0.9) * 110 + Math.sin(tor.angle * 0.7) * 30;
+                    tor.points.position.set(tor.currentPos.x, 0, tor.currentPos.z);
+
+                    const positions = tor.geometry.attributes.position.array;
+                    const angles = tor.geometry.pAngles;
+                    const heights = tor.geometry.pHeights;
+                    const speeds = tor.geometry.pSpeeds;
+
+                    for (let i = 0; i < angles.length; i++) {
+                        angles[i] += speeds[i] + (125 - heights[i]) * 0.0008; heights[i] += 0.5; 
+                        if (heights[i] > 125) { heights[i] = 0; angles[i] = Math.random() * Math.PI * 2; }
+                        let dynamicRadius = 2.0 + (heights[i] * 0.35);
+                        positions[i * 3] = Math.cos(angles[i]) * dynamicRadius;
+                        positions[i * 3 + 1] = heights[i];
+                        positions[i * 3 + 2] = Math.sin(angles[i]) * dynamicRadius;
+                    }
+                    tor.geometry.attributes.position.needsUpdate = true;
+                });
+
+                buildings.forEach(b => {
+                    let closestTor = null; let minDist = 99999;
+                    
+                    tornadoes.forEach(tor => {
+                        let dx = b.mesh.position.x - tor.currentPos.x;
+                        let dz = b.mesh.position.z - tor.currentPos.z;
+                        let dist = Math.sqrt(dx * dx + dz * dz);
+                        if (dist < minDist) { minDist = dist; closestTor = tor; }
+                    });
+
+                    if (minDist < 35 && closestTor) { 
+                        b.tornadoFly = true;
+                        if (b.type === 'standard') {
+                            b.mesh.position.y += 0.6;
+                            let dx = b.mesh.position.x - closestTor.currentPos.x;
+                            let dz = b.mesh.position.z - closestTor.currentPos.z;
+                            let angle = Math.atan2(dz, dx) + 0.14;
+                            let newDist = minDist * 0.93;
+                            if(newDist < 3) newDist = 3; 
+                            b.mesh.position.x = closestTor.currentPos.x + Math.cos(angle) * newDist;
+                            b.mesh.position.z = closestTor.currentPos.z + Math.sin(angle) * newDist;
+                            b.mesh.rotation.x += 0.05; b.mesh.rotation.y += 0.07;
+                        }
+
+                        if (b.mesh.position.y > 90 && b.type === 'standard') {
+                            b.tornadoFly = false; b.isCollapsed = true;
+                            b.flyVector = new THREE.Vector3((Math.random() - 0.5) * 5, -0.4, (Math.random() - 0.5) * 5);
+                        }
+                    }
+                });
+            } else {
+                buildings.forEach(b => {
+                    if (b.tornadoFly) {
+                        b.tornadoFly = false; b.isCollapsed = true;
+                        b.flyVector = new THREE.Vector3((Math.random() - 0.5) * 2, -0.2, (Math.random() - 0.5) * 2);
+                    }
+                    if (b.mesh.position.y > b.height / 2 && !b.flyVector && !isEarthquake) {
+                        b.mesh.position.y -= 1.0; if(b.mesh.position.y < b.height / 2) b.mesh.position.y = b.height / 2;
+                    }
+                });
+            }
+
+            // --- 巨大住民AIのアップデート ---
+            people.forEach(p => {
+                if (p.isDead && !p.flyVector) return;
+
+                if (tornadoes.length > 0 && !p.isDead) {
+                    let closestTor = null; let minDist = 99999;
+                    tornadoes.forEach(tor => {
+                        let dx = p.mesh.position.x - tor.currentPos.x;
+                        let dz = p.mesh.position.z - tor.currentPos.z;
+                        let dist = Math.sqrt(dx * dx + dz * dz);
+                        if (dist < minDist) { minDist = dist; closestTor = tor; }
+                    });
+
+                    if (minDist < 38 && closestTor) {
+                        p.tornadoFly = true; p.mesh.position.y += 1.0; 
+                        let dx = p.mesh.position.x - closestTor.currentPos.x;
+                        let dz = p.mesh.position.z - closestTor.currentPos.z;
+                        let angle = Math.atan2(dz, dx) + 0.25; 
+                        let newDist = minDist * 0.89; if(newDist < 1) newDist = 1;
+
+                        p.mesh.position.x = closestTor.currentPos.x + Math.cos(angle) * newDist;
+                        p.mesh.position.z = closestTor.currentPos.z + Math.sin(angle) * newDist;
+                        
+                        p.mesh.rotation.x += 0.08; p.mesh.rotation.y += 0.12;
+                        p.leftArm.rotation.z = Math.sin(timestamp * 0.05) * 1.2;
+                        p.rightArm.rotation.z = -Math.sin(timestamp * 0.05) * 1.2;
+
+                        if (p.mesh.position.y > 90) {
+                            p.tornadoFly = false;
+                            p.flyVector = new THREE.Vector3((Math.random() - 0.5) * 9, -0.05, (Math.random() - 0.5) * 9);
+                        }
+                    }
+                }
+
+                if (p.flyVector) {
+                    p.mesh.position.add(p.flyVector); p.flyVector.y -= 0.04; 
+                    if (p.mesh.position.y <= 0) { 
+                        p.mesh.position.y = 0; p.mesh.rotation.x = Math.PI / 2; p.mesh.rotation.z = Math.random() * Math.PI;
+                        p.flyVector = null; p.isDead = true;
+                    }
+                }
+
+                if (!p.tornadoFly && !p.flyVector) {
+                    let currentSpeed = p.speed; let animSpeed = 0.012; 
+                    
+                    if (isEarthquake) {
+                        currentSpeed *= (1.0 + earthquakeLevel * 0.9); animSpeed = 0.01 + earthquakeLevel * 0.005;
+                        p.dir += (Math.random() - 0.5) * (0.1 * earthquakeLevel); 
+                    } else {
+                        if (Math.random() < 0.015) p.dir += (Math.random() - 0.5) * 0.8;
+                    }
+
+                    p.mesh.position.x += Math.cos(p.dir) * currentSpeed;
+                    p.mesh.position.z += Math.sin(p.dir) * currentSpeed;
+                    p.mesh.rotation.y = -p.dir - Math.PI / 2;
+
+                    let wave = Math.sin(timestamp * (animSpeed * 1000) * 0.001 + p.animOffset) * 0.7;
+                    p.leftLeg.rotation.x = wave; p.rightLeg.rotation.x = -wave;
+                    p.leftArm.rotation.x = -wave * 0.8; p.rightArm.rotation.x = wave * 0.8;
+
+                    if (Math.abs(p.mesh.position.x) > 840 || Math.abs(p.mesh.position.z) > 840) {
+                        p.dir += Math.PI;
+                        p.mesh.position.x = Math.max(-835, Math.min(835, p.mesh.position.x));
+                        p.mesh.position.z = Math.max(-835, Math.min(835, p.mesh.position.z));
+                    }
+
+                    if (isEarthquake) {
+                        if (earthquakeLevel >= 7.0 && !p.isDead && Math.random() < (earthquakeLevel * 0.001)) {
+                            p.mesh.position.y = 0; p.mesh.rotation.x = Math.PI / 2; p.isDead = true;
+                        }
+                        if (earthquakeLevel >= 10.0 && Math.random() < 0.008) {
+                            p.flyVector = new THREE.Vector3(
+                                (Math.random() - 0.5) * (earthquakeLevel * 0.5),
+                                1.8 + Math.random() * (earthquakeLevel * 0.5),
+                                (Math.random() - 0.5) * (earthquakeLevel * 0.5)
+                            );
+                            p.isDead = true;
+                        }
+                    }
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // -------------------------------------------------------------
+        // UIイベント制御関係
+        // -------------------------------------------------------------
+        function addCentralTornado() {
+            createSingleTornadoInstance(0, 0);
+            showTicker(`【気象兵器】都市中心部(0,0)に竜巻を1基追加しました。現在計 ${tornadoes.length} 基が活動中。`);
+        }
+
+        function clearAllTornadoes() {
+            tornadoes.forEach(tor => {
+                scene.remove(tor.points);
+                tor.geometry.dispose();
+            });
+            tornadoes = [];
+
+            buildings.forEach(b => {
+                if (b.tornadoFly) {
+                    b.tornadoFly = false; b.isCollapsed = true;
+                    b.flyVector = new THREE.Vector3((Math.random() - 0.5) * 3, -0.2, (Math.random() - 0.5) * 3);
+                }
+            });
+            people.forEach(p => {
+                if (p.tornadoFly) {
+                    p.tornadoFly = false;
+                    p.flyVector = new THREE.Vector3((Math.random() - 0.5) * 4, -0.05, (Math.random() - 0.5) * 4);
+                }
+            });
+
+            document.getElementById('tor-on').classList.remove('active');
+            document.getElementById('tor-off').classList.add('active');
+
+            if (!isEarthquake) {
+                document.getElementById('news-ticker').style.display = 'none';
+            } else {
+                onEqSliderChange(earthquakeLevel);
+            }
+        }
+
+        function resetCity() {
+            onEqSliderChange(0);
+            document.getElementById('eq-slider').value = 0;
+            clearAllTornadoes();
+            
+            document.getElementById('time-slider').value = 12;
+            onTimeSliderChange(12);
+
+            targetLookAt.set(0, 10, 0);
+            updateCameraPosition();
+
+            buildings.forEach(b => {
+                b.isCollapsed = false; b.tornadoFly = false; b.flyVector = null;
+                b.mesh.position.copy(b.initialPos); b.mesh.rotation.set(0, 0, 0);
+            });
+
+            people.forEach(p => {
+                p.isDead = false; p.tornadoFly = false; p.flyVector = null;
+                p.mesh.position.set(p.initialPos.x, 0, p.initialPos.z); p.mesh.rotation.set(0, 0, 0);
+                p.leftLeg.rotation.set(0,0,0); p.rightLeg.rotation.set(0,0,0);
+                p.leftArm.rotation.set(0,0,0); p.rightArm.rotation.set(0,0,0);
+                p.dir = Math.random() * Math.PI * 2;
+            });
+
+            showMessage("都市再生プロトコル完了。<br>発生していたすべてのマルチ竜巻を消滅させ、カメラ位置、時間帯、地殻震動スケールをすべて健全な初期メガスケール状態へリビルドしました。");
+        }
+
+        function showTicker(text) {
+            const ticker = document.getElementById('news-ticker');
+            const tickerText = document.getElementById('news-text');
+            tickerText.innerHTML = text; ticker.style.display = 'block';
+        }
+
+        function showMessage(text) {
+            const box = document.getElementById('message-box');
+            const boxText = document.getElementById('message-text');
+            boxText.innerHTML = text; box.style.display = 'block';
+        }
+
+        function closeMessageBox() {
+            document.getElementById('message-box').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
